@@ -1,32 +1,46 @@
+###
 # Dockerfile that contains Unidata Python and ancillary technology (e.g.,IPyNB)
+###
 
 FROM ubuntu:15.10
 
-MAINTAINER Julien Chastang <chastang@ucar.edu>
+MAINTAINER Unidata Cloud Team
 
+###
 # anaconda works better with bash
+###
 
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
+###
 # House keeping
+###
 
 RUN apt-get update
 
 RUN apt-get -y upgrade
 
+###
 # Install some Linux packages
+###
 
-RUN apt-get install -y curl git bzip2
+RUN apt-get install -y curl git bzip2 sudo
 
+###
 # In case the user wants to run a IPyNB
+###
 
 EXPOSE 8888
 
+###
 # Set up python user account
+###
 
 RUN useradd -ms /bin/bash python
 
 RUN adduser python sudo
+
+RUN echo "python ALL=NOPASSWD: ALL" >> /etc/sudoers
 
 RUN echo 'python:docker' | chpasswd
 
@@ -34,40 +48,58 @@ USER python
 
 ENV HOME /home/python
 
-WORKDIR /home/python
+WORKDIR $HOME
 
+###
 # Install miniconda
+###
 
-RUN mkdir -p /home/python/downloads
+RUN mkdir -p $HOME/downloads
 
-RUN cd /home/python/downloads && curl -SL \
+RUN cd $HOME/downloads && curl -SL \
   http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -o \
   Miniconda-latest-Linux-x86_64.sh
 
-RUN /bin/bash /home/python/downloads/Miniconda-latest-Linux-x86_64.sh -b -p \
-  /home/python/anaconda/
+RUN /bin/bash $HOME/downloads/Miniconda-latest-Linux-x86_64.sh -b -p \
+  $HOME/anaconda/
 
-ENV PATH /home/python/anaconda/bin:$PATH
+ENV PATH $HOME/anaconda/bin:$PATH
 
 RUN conda update --yes --quiet conda
 
-RUN conda config --add channels https://conda.binstar.org/unidata
+ADD environment.yml $HOME/
 
-ADD environment.yml /home/python/
+RUN conda env update --name root -f $HOME/environment.yml
 
-RUN conda env create --quiet -f /home/python/environment.yml
+###
+# Work volume
+###
 
-RUN mkdir -p /home/python/work
+RUN mkdir -p $HOME/work
 
-WORKDIR /home/python/work
+WORKDIR $HOME/work
 
-VOLUME /home/python/work
+VOLUME $HOME/work
+
+###
+# Wrapping up some stuff
+###
 
 USER root
 
-RUN chown -R python:python /home/python/
+RUN rm -rf $HOME/downloads/*
+
+RUN chown -R python:python $HOME/
+
+###
+# Start container
+###
 
 USER python
 
-ADD .bashrc /home/python/
+ADD .bashrc $HOME/
+
+ADD login-msg.txt $HOME/
+
+CMD bash
 

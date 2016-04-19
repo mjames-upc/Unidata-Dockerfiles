@@ -5,48 +5,75 @@
 # See http://www.projectatomic.io/blog/2014/09/running-syslog-within-a-docker-container/ for information re: rsyslogd in centos/redhat/etc.
 ####
 
-FROM centos:7
-
-###
-# Update the system.
-###
-
-RUN yum update yum
-RUN yum install -y wget rsyslog git bzip2 curl perl
-
-###
-# Copy over rsyslog configuration, set
-# up home environment.
-###
-ADD rsyslog.conf /etc/
-ENV HOME /home/ldm
-WORKDIR /home/ldm
+FROM unidata/ldmbase
 
 ###
 # Download, decompress LDM
 ###
 
-RUN curl -SL \
-  https://motherlode.ucar.edu/repository/entry/get/ldm.tar.bz2?entryid=b1d327b5-207c-4c2e-8d23-b7a611627764 \
-  -o ~/ldm.tar.bz2
+ENV LDM_VERSION 6.12.14
 
-RUN tar xvfj ~/ldm.tar.bz2
-RUN rm ~/ldm.tar.bz2
+RUN curl -SL \
+    https://motherlode.ucar.edu/repository/entry/get/ldm-${LDM_VERSION}.tar.bz2?entryid=f4d94fce-b785-42c9-8a6c-4aae9170706a \
+    -o ~/ldm-${LDM_VERSION}.tar.bz2
+
+RUN tar xvfj ~/ldm-${LDM_VERSION}.tar.bz2
+
+RUN rm ~/ldm-${LDM_VERSION}.tar.bz2
 
 ##
 # Set up some environmental variables.
 ##
-ENV PATH /home/ldm/bin:$PATH
-RUN mkdir -p /home/ldm/var/queues
-RUN echo "" > /etc/rsyslog.d/listen.conf
+
+ENV PATH $HOME/bin:$PATH
+
+##
+# Fix setuids
+##
+
+USER root
+
+RUN chmod +s $HOME/bin/hupsyslog
+RUN chown root $HOME/bin/hupsyslog
+
+RUN chmod +s $HOME/bin/ldmd
+RUN chown root $HOME/bin/ldmd
+
+USER ldm
+
+##
+# Create ldm directories conistent with registry.xml
+##
+
+RUN mkdir -p $HOME/var/queues
+
+# This directory will ultimately be mounted outside the container
+RUN mkdir -p $HOME/var/data
 
 ##
 # Copy over some files.
 ##
-COPY runldm.sh /home/ldm/
-COPY README.md /home/ldm/
+
+COPY runldm.sh $HOME/
+
+COPY README.md $HOME/
+
+USER root
+
+RUN chown ldm:ldm runldm.sh README.md
+
+# crontab for scouring
+
+COPY crontab /var/spool/cron/ldm
+
+RUN chown ldm:ldm /var/spool/cron/ldm
+
+RUN chmod 600 /var/spool/cron/ldm
+
+USER ldm
 
 ##
 # Execute script.
 ##
-CMD /home/ldm/runldm.sh
+
+CMD $HOME/runldm.sh
