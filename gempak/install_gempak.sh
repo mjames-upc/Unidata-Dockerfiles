@@ -1,6 +1,6 @@
 #!/bin/sh
 
-v=7.2.2
+v=7.2.3
 
 wget http://www.unidata.ucar.edu/downloads/gempak/latest/gempak-${v}-1.x86_64.rpm
 
