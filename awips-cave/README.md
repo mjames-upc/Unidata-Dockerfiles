@@ -1,6 +1,10 @@
 awips-cave docker file
 ========================
 
-docker pull unidata/awips-cave
+build
+	
+	sudo docker build -t "unidata:awips-cave" .
+	
+run
 
-docker run -P -it unidata/awips-cave
+	sudo docker run -it -e DISPLAY --user awips unidata:awips-cave 
